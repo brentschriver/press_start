@@ -33,13 +33,12 @@ def acquire_and_prep():
     # Create age_bins for the games.
     games['age_bins'] = pd.cut(games.year, bins = [0, 2002, 2009, 2022], labels = ['old_af','middle_aged','noob'])
     # Create two separate dataframes. One for quantitative values and the other for qualitative values.
-    quantitative_values = games.select_dtypes(exclude=['object','category']).columns
-    qualitative_values = games.select_dtypes(include=['object', 'category']).columns
     return games
 
-def split_data():
+# Create a function that takes in a df and splits it to prepare for EDA
+def split_data(df):
     # split test off, 20% of original df size. 
-    train_validate, test = train_test_split(games, test_size=.2, 
+    train_validate, test = train_test_split(df, test_size=.2, 
                                             random_state=123)
     
     # split validate off, 30% of what remains (24% of original df size)
@@ -49,25 +48,31 @@ def split_data():
     
     return train, validate, test
 
-# Create a function that iterates through the categorical columns and plots a Seaborn barplot.
-def qualitative_boxplot():
+
+# Create a function that takes in a dataframe and iterates through the categorical columns and plots a Seaborn barplot.
+def qualitative_boxplot(df):
+    qualitative_values = df.select_dtypes(include=['object', 'category']).columns
     plt.figure(figsize=(36,56))
     for i, col in enumerate(qualitative_values[1:]):
         plot_number = i + 1
         plt.subplot(4,1,plot_number)
         plt.title(col)
-        sns.barplot(x=col, y="na_sales", data=train)
-        na_sales_rate = train.na_sales.mean()
+        sns.barplot(x=col, y="na_sales", data=df)
+        na_sales_rate = df.na_sales.mean()
         plt.axhline(na_sales_rate, label="North American Sales Rate")
         plt.xticks(rotation=45)
         plt.grid(False)
         plt.tight_layout()
 
+
+
 # Create a function that iterates through the categorical features and runs the proper statistical test.
-def qualitative_stats_test():
-    for pub in leading_publishers:
-        publisher_mean = train[train.publisher == pub].na_sales
-        overall_mean = train.na_sales.mean()
+def qualitative_stats_test(df):
+    top_pubs = get_top_publishers(df)
+    alpha = 0.50
+    for pub in top_pubs:
+        publisher_mean = df[df.publisher == pub].na_sales
+        overall_mean = df.na_sales.mean()
     
         t, p = stats.ttest_1samp(publisher_mean, overall_mean)
     
@@ -80,13 +85,14 @@ def qualitative_stats_test():
         else:
             print(f"We reject the null hypothesis. There is sufficient evidence to move forward with the understanding that {pub}'s average sales are greater than the population average.")
 
-def get_top_publishers():
+# Create a function that returns a list of the top publishers.
+def get_top_publishers(df):
     contenders = []
-    for pubs in train.publisher.unique():    
-        if (train.publisher == pubs).sum() > 10:
+    for pubs in df.publisher.unique():    
+        if (df.publisher == pubs).sum() > 10:
             contenders.append(pubs)
     top_pubs = []
     for publisher in contenders:
-        if train[train['publisher'] == publisher].na_sales.mean() > train.na_sales.mean():
+        if df[df['publisher'] == publisher].na_sales.mean() > df.na_sales.mean():
             top_pubs.append(publisher)
     return top_pubs
